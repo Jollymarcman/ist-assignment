@@ -6,8 +6,27 @@
     <title>Unity WebGL Player | Stick Fight The Game</title>
     <link rel="shortcut icon" href="TemplateData/favicon.ico">
     <link rel="stylesheet" href="TemplateData/style.css">
+    <style>
+      #room-tools{width:min(960px,100%);margin:12px auto;padding:12px;display:flex;flex-wrap:wrap;align-items:center;gap:8px;background:#17191f;color:#f6f5f1;font:14px system-ui,sans-serif;border:1px solid #ffffff24;border-radius:10px}
+      #room-tools input{min-width:0;padding:9px 10px;border:1px solid #ffffff35;border-radius:7px;background:#252832;color:inherit}
+      #room-name{width:150px}#room-code{width:126px;text-transform:uppercase;letter-spacing:.1em}
+      #room-tools button{padding:9px 12px;border:0;border-radius:7px;background:#d0f274;color:#17190f;font-weight:700;cursor:pointer}
+      #room-tools button.secondary{background:#383b45;color:#fff}
+      #wss-status{flex:1 1 180px;color:#c3c5ce;min-height:22px}
+      @media(max-width:650px){#room-tools{margin:0 auto 10px;border-radius:0}#wss-status{flex-basis:100%}}
+    </style>
   </head>
   <body>
+    <section id="room-tools" aria-label="Stick Fight online rooms">
+      <input id="room-name" maxlength="20" placeholder="Player name" value="Player" aria-label="Player name">
+      <button onclick="roomAction('PageCreateRoom')">Create room</button>
+      <button class="secondary" onclick="roomAction('PageQuickJoin')">Quick join</button>
+      <input id="room-code" maxlength="6" placeholder="ROOM CODE" aria-label="Room code">
+      <button class="secondary" onclick="joinRoomByCode()">Join code</button>
+      <button class="secondary" onclick="copyRoomCode()">Copy code</button>
+      <button class="secondary" onclick="roomAction('PageLeaveRoom')">Leave</button>
+      <span id="wss-status" role="status" aria-live="polite">Load the game, then create a room or enter a friend's code.</span>
+    </section>
     <div id="unity-container" class="unity-desktop">
       <canvas id="unity-canvas" width=960 height=600 tabindex="-1"></canvas>
       <div id="unity-loading-bar">
@@ -31,6 +50,26 @@
       var progressBarFull = document.querySelector("#unity-progress-bar-full");
       var fullscreenButton = document.querySelector("#unity-fullscreen-button");
       var warningBanner = document.querySelector("#unity-warning");
+      var unityInstance = null;
+
+      function roomAction(method) {
+        if (!unityInstance) { document.getElementById("wss-status").textContent = "Wait for the game to finish loading."; return; }
+        unityInstance.SendMessage("StickFightWssTransport", method, document.getElementById("room-name").value || "Player");
+      }
+      function joinRoomByCode() {
+        if (!unityInstance) { document.getElementById("wss-status").textContent = "Wait for the game to finish loading."; return; }
+        var name = document.getElementById("room-name").value || "Player";
+        var code = document.getElementById("room-code").value.trim().toUpperCase();
+        unityInstance.SendMessage("StickFightWssTransport", "PageJoinRoom", name + "|" + code);
+      }
+      function copyRoomCode() {
+        var code = window.stickFightRoomCode;
+        if (!code) { document.getElementById("wss-status").textContent = "Create or join a room first."; return; }
+        document.getElementById("room-code").value = code;
+        navigator.clipboard.writeText(code).then(function () {
+          document.getElementById("wss-status").textContent = "Room code copied: " + code;
+        });
+      }
 
       // Shows a temporary message banner/ribbon for a few seconds, or
       // a permanent error message on top of the canvas if type=='error'.
@@ -57,7 +96,7 @@
       }
 
       var buildUrl = "Build";
-      var loaderUrl = buildUrl + "/StickFightWeb.loader.js";
+      var loaderUrl = buildUrl + "/StickFightWebGL.loader.js";
       var config = {
         dataUrl: buildUrl + "/StickFightWebGL.data.br",
         frameworkUrl: buildUrl + "/StickFightWebGL.framework.js.br",
@@ -114,7 +153,8 @@
       script.onload = () => {
         createUnityInstance(canvas, config, (progress) => {
           progressBarFull.style.width = 100 * progress + "%";
-              }).then((unityInstance) => {
+              }).then((instance) => {
+                unityInstance = instance;
                 loadingBar.style.display = "none";
                 fullscreenButton.onclick = () => {
                   unityInstance.SetFullscreen(1);
