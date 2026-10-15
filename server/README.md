@@ -8,8 +8,9 @@ The root-level `render.yaml` defines the service. In Render, create a new Bluepr
 
 The free service can sleep after 15 minutes without inbound traffic, making the first connection after idle take about a minute. Room state is in memory and is lost on restart or redeploy. Keep one instance; this first version does not share state between instances.
 
-## Initial protocol
+## Protocol
 
-Clients can send JSON commands: `list`, `create` with a player `name`, `join` with a room `code` and `name`, `leave`, and `start` (host only, at least two players). After joining, binary WebSocket messages are relayed unchanged to the other players in that room.
+Clients send JSON commands for `list`, `create`, `join`, and `leave`. The server assigns each connection a numeric peer ID and sends the room roster, host ID, and local peer ID to every room member. A `packet` JSON message carries a destination peer ID, channel, and base64 game packet. The server forwards the original packet in a binary frame prefixed by the sender peer ID and channel. A destination of `0` broadcasts to the other room members.
 
-The Unity WebGL game client still needs its browser WebSocket bridge and an adapter for Stick Fight's packet handlers. This server by itself does not make matches playable yet.
+This is a relay, not an authoritative game server. The host browser continues to run Stick Fight's game rules and sends packets to the other clients through Render.
+
