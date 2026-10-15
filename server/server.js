@@ -19,7 +19,7 @@ const httpServer = createServer((request, response) => {
   response.end("Not found");
 });
 
-const wss = new WebSocketServer({ server: httpServer, path: "/ws", maxPayload: 256 * 1024 });
+const wss = new WebSocketServer({ server: httpServer, path: "/ws", maxPayload: 384 * 1024 });
 
 function sendJson(socket, value) {
   if (socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify(value));
@@ -39,10 +39,19 @@ function roomSummary(room) {
 }
 
 function sendLobbyState(room) {
-  const players = [...room.players].map(([id, player]) => ({ id, name: player.name }));
+  const players = [...room.players.values()].map((player) => ({ id: String(player.peerId), name: player.name }));
   for (const [id, player] of room.players) {
-    sendJson(player.socket, { type: "lobby", room: roomSummary(room), hostId: room.hostId, players, selfId: id });
+    sendJson(player.socket, { type: "lobby", code: room.code, room: roomSummary(room), hostId: String(room.players.get(room.hostId).peerId), players, selfId: String(player.peerId) });
   }
+}
+
+function newPeerId() {
+  const inUse = new Set([...clients.values()].map((client) => client.peerId));
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    const id = randomInt(1, 0x7fffffff);
+    if (!inUse.has(id)) return id;
+  }
+  throw new Error("Unable to allocate a player id");
 }
 
 function leaveRoom(client) {
@@ -66,7 +75,7 @@ function fail(socket, code, message) {
 function enterRoom(client, room, name) {
   if (client.roomCode) leaveRoom(client);
   if (room.players.size >= roomCapacity) return fail(client.socket, "ROOM_FULL", "That room is full.");
-  room.players.set(client.id, { socket: client.socket, name });
+  room.players.set(client.id, { socket: client.socket, name, peerId: client.peerId });
   client.roomCode = room.code;
   sendLobbyState(room);
 }
@@ -110,19 +119,48 @@ function handleCommand(client, value) {
     for (const player of room.players.values()) sendJson(player.socket, { type: "start" });
     return;
   }
+  if (value.type === "packet") {
+    const room = rooms.get(client.roomCode);
+    if (!room) return fail(client.socket, "NOT_IN_ROOM", "Join a room before sending game data.");
+    const targetId = Number(value.to) >>> 0;
+    const channel = Number(value.channel) & 0xff;
+    if (typeof value.data !== "string" || value.data.length > 350000)
+      return fail(client.socket, "BAD_PACKET", "The game packet is missing or too large.");
+    let payload;
+    try { payload = Buffer.from(value.data, "base64"); }
+    catch { return fail(client.socket, "BAD_PACKET", "The game packet is not valid base64."); }
+    if (payload.length === 0 || payload.length > 256 * 1024)
+      return fail(client.socket, "BAD_PACKET", "The game packet is empty or too large.");
+    const frame = Buffer.allocUnsafe(5 + payload.length);
+    frame.writeUInt32LE(client.peerId, 0);
+    frame.writeUInt8(channel, 4);
+    payload.copy(frame, 5);
+    const targets = targetId === 0
+      ? [...room.players.values()].filter((player) => player.socket !== client.socket)
+      : [...room.players.values()].filter((player) => player.peerId === targetId);
+    if (targetId !== 0 && targets.length === 0)
+      return fail(client.socket, "PLAYER_NOT_FOUND", "That player is no longer in the room.");
+    for (const player of targets)
+      if (player.socket.readyState === WebSocket.OPEN) player.socket.send(frame, { binary: true });
+    return;
+  }
   fail(client.socket, "UNKNOWN_COMMAND", "That command is not supported.");
 }
 
 wss.on("connection", (socket) => {
-  const client = { id: randomUUID(), socket, roomCode: null, alive: true };
+  const client = { id: randomUUID(), peerId: newPeerId(), socket, roomCode: null, alive: true };
   clients.set(client.id, client);
   socket.on("pong", () => { client.alive = true; });
   socket.on("message", (data, isBinary) => {
     if (isBinary) {
       const room = rooms.get(client.roomCode);
       if (!room) return fail(socket, "NOT_IN_ROOM", "Join a room before sending game data.");
+      const frame = Buffer.allocUnsafe(5 + data.length);
+      frame.writeUInt32LE(client.peerId, 0);
+      frame.writeUInt8(0, 4);
+      data.copy(frame, 5);
       for (const [id, player] of room.players) {
-        if (id !== client.id && player.socket.readyState === WebSocket.OPEN) player.socket.send(data, { binary: true });
+        if (id !== client.id && player.socket.readyState === WebSocket.OPEN) player.socket.send(frame, { binary: true });
       }
       return;
     }
@@ -137,7 +175,7 @@ wss.on("connection", (socket) => {
     clients.delete(client.id);
   });
   socket.on("error", () => socket.terminate());
-  sendJson(socket, { type: "connected", clientId: client.id, protocol: 1 });
+  sendJson(socket, { type: "connected", clientId: client.id, peerId: client.peerId, protocol: 2 });
 });
 
 const heartbeat = setInterval(() => {
@@ -153,3 +191,4 @@ const heartbeat = setInterval(() => {
 
 httpServer.listen(port, "0.0.0.0", () => console.log(`Stick Fight WSS server listening on ${port}`));
 httpServer.on("close", () => clearInterval(heartbeat));
+
