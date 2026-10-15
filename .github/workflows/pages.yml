@@ -8,6 +8,7 @@ on:
       - "Build/**"
       - "StreamingAssets/**"
       - "TemplateData/**"
+      - "site/index.html"
       - ".github/workflows/pages.yml"
   workflow_dispatch:
 
@@ -33,9 +34,10 @@ jobs:
         uses: actions/configure-pages@v5
       - name: Prepare the Unity WebGL player
         run: |
-          mkdir -p dist/Build
-          cp index.html dist/index.html
-          cp -R TemplateData StreamingAssets dist/
+          mkdir -p dist/game/Build
+          cp site/index.html dist/index.html
+          cp index.html dist/game/index.html
+          cp -R TemplateData StreamingAssets dist/game/
           node <<'NODE'
           const fs = require("node:fs");
           const path = require("node:path");
@@ -46,11 +48,11 @@ jobs:
             const outputName = name.endsWith(".br") ? name.slice(0, -3) : name;
             const bytes = fs.readFileSync(source);
             fs.writeFileSync(
-              path.join("dist/Build", outputName),
+              path.join("dist/game/Build", outputName),
               name.endsWith(".br") ? zlib.brotliDecompressSync(bytes) : bytes
             );
           }
-          const pagePath = "dist/index.html";
+          const pagePath = "dist/game/index.html";
           const html = fs.readFileSync(pagePath, "utf8")
             .replaceAll(".data.br", ".data")
             .replaceAll(".framework.js.br", ".framework.js")
