@@ -98,11 +98,12 @@
       }
 
       var buildUrl = "Build";
-      var loaderUrl = buildUrl + "/StickFightWebGL.loader.js";
+      var buildVersion = "51085e3";
+      var loaderUrl = buildUrl + "/StickFightWebGL.loader.js?v=" + buildVersion;
       var config = {
-        dataUrl: buildUrl + "/StickFightWebGL.data.br",
-        frameworkUrl: buildUrl + "/StickFightWebGL.framework.js.br",
-        codeUrl: buildUrl + "/StickFightWebGL.wasm.br",
+        dataUrl: buildUrl + "/StickFightWebGL.data.br?v=" + buildVersion,
+        frameworkUrl: buildUrl + "/StickFightWebGL.framework.js.br?v=" + buildVersion,
+        codeUrl: buildUrl + "/StickFightWebGL.wasm.br?v=" + buildVersion,
         streamingAssetsUrl: "StreamingAssets",
         companyName: "Landfall West",
         productName: "Stick Fight The Game",
