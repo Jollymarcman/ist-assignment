@@ -1,10 +1,13 @@
-name: Deploy hub to GitHub Pages
+name: Deploy Stick Fight WebGL to GitHub Pages
 
 on:
   push:
     branches: [main]
     paths:
-      - "site/**"
+      - "index.html"
+      - "Build/**"
+      - "StreamingAssets/**"
+      - "TemplateData/**"
       - ".github/workflows/pages.yml"
   workflow_dispatch:
 
@@ -28,10 +31,36 @@ jobs:
         uses: actions/checkout@v4
       - name: Configure Pages
         uses: actions/configure-pages@v5
-      - name: Upload hub
+      - name: Prepare the Unity WebGL player
+        run: |
+          mkdir -p dist/Build
+          cp index.html dist/index.html
+          cp -R TemplateData StreamingAssets dist/
+          node <<'NODE'
+          const fs = require("node:fs");
+          const path = require("node:path");
+          const zlib = require("node:zlib");
+          for (const name of fs.readdirSync("Build")) {
+            const source = path.join("Build", name);
+            if (!fs.statSync(source).isFile()) continue;
+            const outputName = name.endsWith(".br") ? name.slice(0, -3) : name;
+            const bytes = fs.readFileSync(source);
+            fs.writeFileSync(
+              path.join("dist/Build", outputName),
+              name.endsWith(".br") ? zlib.brotliDecompressSync(bytes) : bytes
+            );
+          }
+          const pagePath = "dist/index.html";
+          const html = fs.readFileSync(pagePath, "utf8")
+            .replaceAll(".data.br", ".data")
+            .replaceAll(".framework.js.br", ".framework.js")
+            .replaceAll(".wasm.br", ".wasm");
+          fs.writeFileSync(pagePath, html);
+          NODE
+      - name: Upload GitHub Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: site
-      - name: Deploy hub
+          path: dist
+      - name: Deploy Stick Fight
         id: deployment
         uses: actions/deploy-pages@v4
