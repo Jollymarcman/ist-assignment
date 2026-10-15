@@ -12,6 +12,7 @@
       #room-name{width:150px}#room-code{width:126px;text-transform:uppercase;letter-spacing:.1em}
       #room-tools button{padding:9px 12px;border:0;border-radius:7px;background:#d0f274;color:#17190f;font-weight:700;cursor:pointer}
       #room-tools button.secondary{background:#383b45;color:#fff}
+      #room-tools button.start-game{background:#ff6f61;color:#21100e}
       #wss-status{flex:1 1 180px;color:#c3c5ce;min-height:22px}
       @media(max-width:650px){#room-tools{margin:0 auto 10px;border-radius:0}#wss-status{flex-basis:100%}}
     </style>
@@ -23,6 +24,7 @@
       <button class="secondary" onclick="roomAction('PageQuickJoin')">Quick join</button>
       <input id="room-code" maxlength="6" placeholder="ROOM CODE" aria-label="Room code">
       <button class="secondary" onclick="joinRoomByCode()">Join code</button>
+      <button class="start-game" onclick="roomAction('PageStartGame')">Start game</button>
       <button class="secondary" onclick="copyRoomCode()">Copy code</button>
       <button class="secondary" onclick="roomAction('PageLeaveRoom')">Leave</button>
       <span id="wss-status" role="status" aria-live="polite">Load the game, then create a room or enter a friend's code.</span>
