@@ -102,8 +102,8 @@
       }
 
       var buildUrl = "Build";
-      var buildVersion = "wss-20261017-2140";
-      var releaseBuildNumber = 3;
+      var buildVersion = "wss-20261017-2155";
+      var releaseBuildNumber = 4;
       var buildStatus = document.getElementById("build-status");
       fetch(buildUrl + "/release.json?check=" + Date.now(), { cache: "no-store" })
         .then(function (response) { if (!response.ok) throw new Error("Release info unavailable"); return response.json(); })
