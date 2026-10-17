@@ -14,6 +14,9 @@
       #room-tools button.secondary{background:#383b45;color:#fff}
       #room-tools button.start-game{background:#ff6f61;color:#21100e}
       #wss-status{flex:1 1 180px;color:#c3c5ce;min-height:22px}
+      #build-status{position:fixed;right:12px;bottom:10px;z-index:20;padding:7px 10px;border:1px solid #ffffff30;border-radius:8px;background:#17191feF;color:#c3c5ce;font:12px system-ui,sans-serif;box-shadow:0 2px 12px #0005}
+      #build-status.is-latest{color:#d0f274;border-color:#d0f27470}
+      #build-status.is-outdated{color:#ffb36b;border-color:#ffb36b80}
       @media(max-width:650px){#room-tools{margin:0 auto 10px;border-radius:0}#wss-status{flex-basis:100%}}
     </style>
   </head>
@@ -29,6 +32,7 @@
       <button class="secondary" onclick="roomAction('PageLeaveRoom')">Leave</button>
       <span id="wss-status" role="status" aria-live="polite">Load the game, then create a room or enter a friend's code.</span>
     </section>
+    <div id="build-status" role="status" aria-live="polite" title="Checking the latest published game build">Build 1 · Checking…</div>
     <div id="unity-container" class="unity-desktop">
       <canvas id="unity-canvas" width=960 height=600 tabindex="-1"></canvas>
       <div id="unity-loading-bar">
@@ -99,6 +103,30 @@
 
       var buildUrl = "Build";
       var buildVersion = "wss-20261017-2112";
+      var releaseBuildNumber = 1;
+      var buildStatus = document.getElementById("build-status");
+      fetch(buildUrl + "/release.json?check=" + Date.now(), { cache: "no-store" })
+        .then(function (response) { if (!response.ok) throw new Error("Release info unavailable"); return response.json(); })
+        .then(function (release) {
+          var latest = Number(release.build);
+          if (!Number.isFinite(latest) || latest < 1) throw new Error("Invalid release info");
+          if (latest === releaseBuildNumber) {
+            buildStatus.textContent = "Build " + releaseBuildNumber + " · Latest";
+            buildStatus.classList.add("is-latest");
+            buildStatus.title = "You are on the latest published game build.";
+          } else if (latest > releaseBuildNumber) {
+            buildStatus.textContent = "Build " + releaseBuildNumber + " · Update available (" + latest + ")";
+            buildStatus.classList.add("is-outdated");
+            buildStatus.title = "A newer game build is available. Reload this page to get it.";
+          } else {
+            buildStatus.textContent = "Build " + releaseBuildNumber;
+            buildStatus.title = "This build is newer than the published release marker.";
+          }
+        })
+        .catch(function () {
+          buildStatus.textContent = "Build " + releaseBuildNumber + " · Status unavailable";
+          buildStatus.title = "Could not check the latest build. The game is still playable.";
+        });
       var loaderUrl = buildUrl + "/StickFightWebGL.loader.js?v=" + buildVersion;
       var config = {
         dataUrl: buildUrl + "/StickFightWebGL.data.br?v=" + buildVersion,
